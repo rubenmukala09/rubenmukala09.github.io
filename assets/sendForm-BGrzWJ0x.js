@@ -1,0 +1,1 @@
+async function e(e,t){let n=new FormData;n.append(`form_type`,e);for(let[e,r]of Object.entries(t))e!==`website_hp`&&r!=null&&(typeof r==`object`?n.append(e,JSON.stringify(r)):n.append(e,String(r)));try{let t=await fetch(`/send.php`,{method:`POST`,body:n});t.ok||console.warn(`/send.php returned ${t.status} for ${e}`)}catch{}}export{e as t};
