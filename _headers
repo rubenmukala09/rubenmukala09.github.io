@@ -2,9 +2,11 @@
 # These ship only with the built bundle — Vite dev keeps its hot-reload powers.
 # When moving to a different host (Vercel/Cloudflare/Hostinger), translate
 # these into that host's header config.
+# YouTube scripts power the music API; both frame origins are used by music
+# and the privacy-enhanced trailer. Inline scripts remain disallowed.
 
 /*
-  Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://*.supabase.co https://*.supabase.in https://api.stripe.com; font-src 'self' data:; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' https://www.youtube.com; connect-src 'self' https://*.supabase.co https://*.supabase.in https://api.stripe.com; font-src 'self' data:; media-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY

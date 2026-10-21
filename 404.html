@@ -23,31 +23,10 @@
     <!-- Apply CMS prefs BEFORE React renders so first paint has the right
          title + announcement banner state. Avoids the brief flash of default
          title visitors saw before. Theme is locked to 'ember'. -->
-    <script>
-      (function () {
-        document.documentElement.setAttribute('data-theme', 'ember')
-        try {
-          var raw = localStorage.getItem('reset:site_content')
-          if (!raw) return
-          var prefs = (JSON.parse(raw) || {}).preferences || {}
-          if (typeof prefs.siteTitle === 'string' && prefs.siteTitle) {
-            document.title = prefs.siteTitle
-          }
-          if (typeof prefs.seoDescription === 'string' && prefs.seoDescription) {
-            var meta = document.querySelector('meta[name="description"]')
-            if (meta) meta.setAttribute('content', prefs.seoDescription)
-          }
-          if (prefs.announcementEnabled && typeof prefs.announcementText === 'string' && prefs.announcementText.trim()) {
-            document.documentElement.setAttribute('data-banner', 'on')
-          }
-        } catch (e) {
-          /* ignore — theme is already set above */
-        }
-      })()
-    </script>
-    <script type="module" crossorigin src="/assets/index-DDSnNHD6.js"></script>
+    <script src="/bootstrap.js"></script>
+    <script type="module" crossorigin src="/assets/index-BNjzruqv.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/createLucideIcon-Bh9ebzgG.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-CEJJpf7-.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-DmGQeWZZ.css">
   </head>
   <body>
     <div id="root"></div>

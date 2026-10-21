@@ -7,8 +7,8 @@
  * every form on the site and forwards the data to the team by email.
  *
  * BEFORE GOING LIVE:
- *   1. Edit $TO below to your real team inbox.
- *   2. Edit $FROM to an address on the same domain as the host (avoids the
+ *   1. Set RESET_MAIL_TO in the PHP host environment to your real team inbox.
+ *   2. Set RESET_MAIL_FROM to an address on the same domain as the host (avoids the
  *      message landing in spam — Hostinger's PHP mail headers need this).
  *   3. Optional: change $SUBJECT_PREFIX to suit your branding.
  *
@@ -18,13 +18,13 @@
  *   - Header fields (From, Reply-To) reject any string containing \r or \n
  *     so a poisoned email field can't smuggle in extra headers.
  *   - Submissions are rate-limited per IP (10 per hour by default) using a
- *     small flat-file counter in /tmp. Disable by deleting the rate-limit
- *     block if your host's /tmp isn't writeable.
+ *     locked flat-file counter in /tmp. The PHP host must provide a writable
+ *     temporary directory; otherwise delivery reports a temporary failure.
  */
 
 // ─── CONFIGURATION ──────────────────────────────────────────────────────────
-$TO              = 'team@reset.org';            // ← change to your real inbox
-$FROM            = 'noreply@reset.org';         // ← address on your domain
+$TO              = trim(getenv('RESET_MAIL_TO') ?: '');
+$FROM            = trim(getenv('RESET_MAIL_FROM') ?: '');
 $SUBJECT_PREFIX  = 'RESET — ';
 $RATE_LIMIT      = 10;                          // submissions per IP per hour
 $RATE_WINDOW     = 3600;                        // seconds
@@ -51,15 +51,37 @@ if (!empty($_POST['website_hp'])) {
     respond(200, ['ok' => true]);
 }
 
-// ─── RATE LIMIT (best-effort, flat file) ────────────────────────────────────
-// Tracks per-IP submission counts in /tmp/reset_send_rate.json. If the file
-// system is read-only, the limit silently no-ops.
-$ip   = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-$ip   = preg_split('/,\s*/', $ip)[0]; // take first hop only
+// Fail safely until a real recipient and sender are configured. Never send
+// private intake information to the example addresses shipped with a template.
+if (!filter_var($TO, FILTER_VALIDATE_EMAIL) || !filter_var($FROM, FILTER_VALIDATE_EMAIL)) {
+    respond(503, ['ok' => false, 'error' => 'Email delivery is not configured. Please contact the team directly.']);
+}
+
+// Reject malformed fields before constructing headers or touching the mailer.
+if (!isset($_POST['form_type']) || !is_string($_POST['form_type']) || strlen($_POST['form_type']) > 100) {
+    respond(400, ['ok' => false, 'error' => 'A valid form type is required.']);
+}
+if (isset($_POST['email']) && (!is_string($_POST['email']) ||
+    (trim($_POST['email']) !== '' && !filter_var(trim($_POST['email']), FILTER_VALIDATE_EMAIL)))) {
+    respond(400, ['ok' => false, 'error' => 'Enter a valid email address.']);
+}
+if (count($_POST) > 100 || strlen(json_encode($_POST)) > 32000) {
+    respond(413, ['ok' => false, 'error' => 'Submission is too large.']);
+}
+
+// ─── RATE LIMIT (atomic, per source IP) ─────────────────────────────────────
+// Forwarded headers are supplied by callers unless a trusted proxy validates
+// them. The source address avoids letting callers reset their own quota.
+$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 $file = sys_get_temp_dir() . '/reset_send_rate.json';
-if (is_writable(dirname($file))) {
+$handle = @fopen($file, 'c+');
+if (!$handle || !flock($handle, LOCK_EX)) {
+    if ($handle) fclose($handle);
+    respond(503, ['ok' => false, 'error' => 'Email delivery is temporarily unavailable. Please try again later.']);
+}
+try {
     $now  = time();
-    $data = is_readable($file) ? json_decode(@file_get_contents($file), true) : [];
+    $data = json_decode(stream_get_contents($handle), true);
     if (!is_array($data)) $data = [];
     // Prune entries older than the window.
     foreach ($data as $entryIp => $entry) {
@@ -71,10 +93,21 @@ if (is_writable(dirname($file))) {
         $data[$ip] = ['first' => $now, 'count' => 0];
     }
     if ($data[$ip]['count'] >= $RATE_LIMIT) {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+        $handle = null;
         respond(429, ['ok' => false, 'error' => 'Too many submissions. Try again later.']);
     }
     $data[$ip]['count'] += 1;
-    @file_put_contents($file, json_encode($data), LOCK_EX);
+    $encoded = json_encode($data);
+    if (!rewind($handle) || !@ftruncate($handle, 0) || @fwrite($handle, $encoded) !== strlen($encoded)) {
+        respond(503, ['ok' => false, 'error' => 'Email delivery is temporarily unavailable.']);
+    }
+} finally {
+    if (is_resource($handle)) {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+    }
 }
 
 // ─── EXTRACT + SANITIZE FIELDS ──────────────────────────────────────────────
@@ -122,8 +155,8 @@ $body .= implode("\n", $lines) . "\n";
 // Headers — reject any value that tries to inject CRLF (poisoned email field
 // could otherwise smuggle in BCC: lines).
 function safe_header_value($value) {
-    if (preg_match('/[\r\n]/', $value)) return '';
-    return $value;
+    if (!is_string($value) || preg_match('/[\r\n]/', $value)) return '';
+    return trim($value);
 }
 $replyTo = safe_header_value($_POST['email'] ?? $FROM);
 if ($replyTo === '') $replyTo = $FROM;
