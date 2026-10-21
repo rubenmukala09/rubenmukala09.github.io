@@ -1,2 +1,0 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/dist-B-LIaV1u.js","assets/index-lhNe5AdB.js","assets/createLucideIcon-Bh9ebzgG.js","assets/index-BGlLqsI-.css"])))=>i.map(i=>d[i]);
-import{xt as e}from"./index-lhNe5AdB.js";var t=void 0,n=void 0,r=!!t,i=null;async function a(){return r?(i||=e(async()=>{let{createClient:e}=await import(`./dist-B-LIaV1u.js`);return{createClient:e}},__vite__mapDeps([0,1,2,3])).then(({createClient:e})=>e(t,n)),i):null}export{r as n,a as t};
